@@ -1,0 +1,170 @@
+/**
+ * Given a Boggle board and a dictionary, returns a list of available words in
+ * the dictionary present inside of the Boggle board.
+ * @param {string[][]} grid - The Boggle game board.
+ * @param {string[]} dictionary - The list of available words.
+ * @returns {string[]} solutions - Possible solutions to the Boggle board.
+ */
+ exports.findAllSolutions = function(grid, dictionary) {
+  let solutions = [];
+  
+   //** Check to see if all parameters are valid and that we are searching within the bounds of the grid
+  
+  //checks to see if the grid + dict are empty
+  if(grid == null || dictionary == null)
+    return solutions;
+   
+ 
+  //checks for a perfect nxn (length of rows x length of columns)
+  
+  let N = grid.length; //gives you the array and then each row in the array is gonna be it's own array 
+  for(let i = 0; i < N; i++) { //iterates through each row in the grid 
+      if (grid[i].length != N) { //checks if the # of columns in the row does not equal to the total # of rows
+        return solutions; //if it does, return the grid
+     }
+   }
+ //Change input to the same case (upper vs lower)
+   
+   convertCaseToLower(grid, dictionary);
+  
+   
+//Must check if the grid is valid. If there is an 's' or 'q' by itself, then the grid isn't valid. Only 'qu' and 'st' are valid.  
+   
+   if(!isGridValid(grid)) {
+     return solutions;
+   }
+
+
+//** Set up DATA STRUCTURES (visited arrays, solutions, dictionary)
+
+//need to put values in dictionary into a data structure (Trie|Hash|List|Set) to check if a letter is a word in the dict or a prefix of a word in the dict in constant time))  
+   
+  let solutionSet = new Set(); // establishes a set 
+
+//Iterate through each character in the grid and come up with all the possible words that start with that character/cell. Once finished, move to the next position of the grid [y][x].You can move by row and then by column.  
+   
+   let hash = createHashMap(dictionary) //Uses the words in the dict as a key;You iterate through each 'key word' by taking the whole word and hashing it as a 1, then taking the last letter off the word to check if it's a prefix. After you check for a prefix, you take off another letter from the keyword and check for another prefix until you get to the beginning of the word; 
+                                        //Hashes each letter|non-word as a 0 and each pre-fix|word as a 1. Due to hashing, when moving on to the next key-word, any letters from the previous words will now be considered pre-fixes. If a letter you already hashed comes up as a keyword, then that's the only time you will change the value from a pre-fix to word.
+   
+   for (let y = 0; y < N; y++){
+     for (let x = 0; x < N; x++){
+       let word = "";             //building the word dynamically with Line 48
+       
+       //Create 2d array the same size of the grid... initialize it to 0. 
+       let visited = new Array(N).fill(false).map(() => new Array(N).fill(false)); //a mapping function that allows you to initialize to 0. Filled in the array with falses|zeroes.
+       //If you use a character in a particular position then it gets added to 'visited' array that we clear out after each position change in the grid
+       
+       findWords(word, y, x, grid, visited, hash, solutionSet); //y,x gives us starting position for recursive function. Starts at 0,0 | Pos A, then searches the grid for valid letters. Once complete, we move to B and wipe the word clean with line 48 and start building all combos of words starting at 0,1 | Pos B
+     }                                                          
+   }
+     
+   solutions = Array.from(solutionSet); //converts a set to an array
+   return solutions;
+}
+
+
+
+
+//** FUNCTIONS
+isPrefix_or_Word = function(word, hash){
+  return hash[word] != undefined;
+  
+}
+
+isWord = function(word, hash){
+  return hash[word] == 1;
+  
+}
+findWords = function(word, y, x, grid, visited, hash, solutionSet){
+  let adjMatrix = [[-1,-1],
+                  [-1, 0],
+                  [-1, 1],
+                  [0, 1],
+                  [1, 1],          //Values to be offset
+                  [1, 0],
+                  [1, -1],
+                  [0, -1]];
+  
+  //Base Cases: y and x are out of bounds|y and x were already visited. When base case is met, return immediately.
+  if(y < 0 || x < 0 || y >= grid.length || visited[y][x] == true) 
+    return;
+  //Since our word is initially empty, we must append [y][x] to it; Must figure out if the new word is a prefix for any word in the hashtable 
+  word += grid[y][x];
+  if(isPrefix_or_Word(word, hash)){
+    
+    visited[y][x] = true; //is the prefix of a word in the dict; MARK as visited
+   
+    //If the word is in the dict and the letter count > 3, then add word to SoulutionSet
+    if(isWord(word, hash)){
+      if(word.length >= 3)
+        solutionSet.add(word);
+    }
+    //If it's a prefix/word added to the set, keep searching for more words
+    for(let i = 0; i < 8; i++){ //searches for charcters in 8 directions  
+      findWords(word, y + adjMatrix[i][0], x + adjMatrix[i][1], grid, visited, hash, solutionSet)
+      
+    }
+    
+  }
+  
+  //If it's not a prefix then UNMARK Pos [y][x] as visited (backtracking)
+  visited[y][x] = false;
+}
+//Moves each array of words from dict into the hash table (Recursive Function)
+createHashMap = function(dictionary){
+  var dict = {};
+  for(let i = 0; i < dictionary.length; i++){ //loops through all of the arrays of words
+    dict[dictionary[i]]= 1;                   //hashes the word into the dict
+    let wordlength = dictionary[i].length;    //chops off the last character and then hashes the pre-fixes
+    var str = dictionary[i];
+    for(let j = wordlength; wordlength > 1; wordlength--){
+      str = str.substr(0, wordlength - 1);
+      if (str in dict){                       //If you're hashing something and its already in the hash table as a word, then you don't have to hash it again.
+        if(str == 1){
+          dict[str] = 1;
+        }
+      }
+       else{
+         dict[str] = 0;                       //If its not already in the hash table, then you mark it as a 0.
+       } 
+    } 
+  }
+  return dict;
+}
+
+// Creating function that converts all letters in the grid/dict to lower case
+convertCaseToLower = function(grid, dict){ 
+  for(let i = 0; i < grid.length; i++) {  
+    for(let j = 0; j < grid[i].length; j++) {
+      grid[i][j] = grid[i][j].toLowerCase(); //takes the existing content of the grid and changes it to lower case in the same location
+    }
+  }
+  for(let i = 0; i < dict.length; i++){
+    dict[i] = dict[i].toLowerCase();
+  }
+}
+
+//Creates function that checks if the grid has all valid letters
+isGridValid = function(grid){
+  regex = /(st|qu)|[a-prt-z]/; //'regex'(regular expression) searches through sequence of patterns. In the grid i'm searching for the pattern st or qu | a character from a-p, r,t-z
+  for(let i = 0; i < grid.length; i++){ //iterate through the 2d grid with 'i' as your row and 'j' as column. 
+    for(let j = 0; j < grid[i].length; j++){
+      
+      if(!grid[i][j].match(regex)){ // use '.match(regex)' to see if a given string fits the reqs of your regular expression
+        return false;               //if grid at [i][j] is not a match then return false
+      }
+    }
+  }
+  return true;
+}
+
+var grid = [['T', 'W', 'Y', 'R'],
+              ['E', 'N', 'P', 'H'],
+              ['G', 'Z', 'Qu', 'R'],
+              ['St', 'N', 'T', 'A']];
+var dictionary = ['art', 'ego', 'gent', 'get', 'net', 'new', 'newt', 'prat',
+                    'pry', 'qua', 'quart', 'quartz', 'rat', 'tar', 'tarp',
+                    'ten', 'went', 'wet', 'arty', 'egg', 'not', 'quar'];
+
+console.log(exports.findAllSolutions(grid, dictionary));
+
